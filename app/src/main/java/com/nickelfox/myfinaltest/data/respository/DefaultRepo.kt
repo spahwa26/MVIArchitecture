@@ -10,7 +10,10 @@ class DefaultRepo @Inject constructor(
     private val database: GenieDatabase
 ) {
 
-    fun observeCategories() = database.categoryDao().getCategoriesWithImages()
+    fun getCategoriesFromDb() = database.categoryDao().getCategories()
+
+    fun getCategoryImagesFromDb() = database.categoryDao().getCategoryImages()
+
 
     suspend fun getCategories(): CustomResult<String> {
         return when (val result = remoteRepo.getCategories()) {

@@ -5,14 +5,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.nickelfox.myfinaltest.data.models.CategoriesModel
 import com.nickelfox.myfinaltest.data.models.CustomResult
 import com.nickelfox.myfinaltest.data.respository.DefaultRepo
 import com.nickelfox.myfinaltest.utils.Constants.EMPTY_STRING
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -25,9 +28,19 @@ class SampleCategoriesViewModel @Inject constructor(private val repo: DefaultRep
 
     init {
         handleIntent()
+        getCategories()
     }
 
-    fun observeCategories() = repo.observeCategories()
+    fun getCategories() =
+        repo.getCategoriesFromDb().combine(
+            repo.getCategoryImagesFromDb()
+        ) { categories, images ->
+            categories.map { category ->
+                val url = images.find { it.imageId == category.categoryId }?.imageUrl.orEmpty()
+                CategoriesModel(url, category.categoryDisplayName, category.isActive)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 
     private fun handleIntent() {
         viewModelScope.launch {
@@ -47,6 +60,7 @@ class SampleCategoriesViewModel @Inject constructor(private val repo: DefaultRep
                 is CustomResult.Success -> {
                     _state.value = UIState.Loading(View.GONE)
                 }
+
                 is CustomResult.Error -> {
                     _state.value = UIState.Loading(View.GONE)
                     _state.postValue(UIState.Error(result.exception.message ?: EMPTY_STRING))
